@@ -86,12 +86,12 @@ import (
 	// Logs produced by the npm script
 	logs: container.export.files."/logs"
 
-    image: #Image
+	image: #Image
 
 	container: bash.#Run & {
 		"args": args
 
-		input:  *image.output | _
+		input: *image.output | _
 
 		workdir: "/src"
 		mounts: Source: {
@@ -101,6 +101,80 @@ import (
 		script: contents: """
 			set -x
 			npm "$@" | tee /logs
+			echo $$ > /code
+			if [ -e "$NPM_OUTPUT_FOLDER" ]; then
+				mv "$NPM_OUTPUT_FOLDER" /output
+			else
+				mkdir /output
+			fi
+			"""
+		export: {
+			directories: "/output": dagger.#FS
+			files: {
+				"/logs": string
+				"/code": string
+			}
+		}
+
+		// Setup caching
+		env: {
+			NPM_CACHE_FOLDER:  "/cache/npm"
+			NPM_OUTPUT_FOLDER: outputDir
+		}
+		mounts: {
+			"NPM cache": {
+				dest:     "/cache/npm"
+				contents: core.#CacheDir & {
+					id: "\(project)-npm"
+				}
+			}
+			"NodeJS cache": {
+				dest:     "/src/node_modules"
+				type:     "cache"
+				contents: core.#CacheDir & {
+					id: "\(project)-nodejs"
+				}
+			}
+		}
+	}
+}
+
+// Run a npm command (`npx <ARGS>')
+#XCommand: {
+	// Source code to build
+	source: dagger.#FS
+
+	// Arguments to npm
+	args: [...string]
+
+	// Project name, used for cache scoping
+	project: string | *"default"
+
+	// Path of the npm script's output directory
+	// May be absolute, or relative to the workdir
+	outputDir: string | *"./build"
+
+	// Output directory
+	output: container.export.directories."/output"
+
+	// Logs produced by the npm script
+	logs: container.export.files."/logs"
+
+	image: #Image
+
+	container: bash.#Run & {
+		"args": args
+
+		input: *image.output | _
+
+		workdir: "/src"
+		mounts: Source: {
+			dest:     "/src"
+			contents: source
+		}
+		script: contents: """
+			set -x
+			npx "$@" | tee /logs
 			echo $$ > /code
 			if [ -e "$NPM_OUTPUT_FOLDER" ]; then
 				mv "$NPM_OUTPUT_FOLDER" /output
