@@ -5,12 +5,15 @@ import (
 	"universe.dagger.io/docker"
 )
 
-#Html: {
-
+#Build: {
 	source: dagger.#FS
 
 	// Path to markdown slides
 	markdown: string
+
+	// Name of the build
+	name:        string | *"index"
+	_build_name: name
 
 	// Docker image to execute
 	image: #Image
@@ -19,8 +22,24 @@ import (
 	// May be absolute, or relative to the workdir
 	outputDir: string | *"/build"
 
+	// Path to additional theme CSS files
+	theme?: string
+
+	// Command line
+	_do: string
+
+	outputType: *"html" | "pdf" | "pptx"
+
 	// Output directory
 	output: container.export.directories."/output"
+
+	*{
+		theme: ""
+		_do:   "docker-entrypoint --\(outputType) --allow-local-files"
+	} | {
+		theme: string
+		_do:   "docker-entrypoint --\(outputType) --allow-local-files --theme-set /src/\(theme)"
+	}
 
 	container: docker.#Run & {
 		input: *image.output | _
@@ -30,10 +49,7 @@ import (
 			flags: "-c": """
                 set -x
                 MARP_USER="$(id -u):$(id -g)"
-                docker-entrypoint \\
-                    --html \\
-                    --output /src/\(outputDir)/index.html \\
-                    /src/\(markdown)
+                \(_do) --output /src/\(outputDir)/\(_build_name).\(outputType) /src/\(markdown)
                 if [ -d /src/\(outputDir) ]; then
                     mv /src/\(outputDir) /output
                 else
