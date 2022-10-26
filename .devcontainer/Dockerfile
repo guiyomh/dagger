@@ -4,9 +4,10 @@
 ARG VARIANT="buster"
 FROM mcr.microsoft.com/vscode/devcontainers/base:0-${VARIANT}
 
-# ** [Optional] Uncomment this section to install additional packages. **
-# RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
-#     && apt-get -y install --no-install-recommends <your-package-list-here>
+ARG CUE_VERSION="v0.4.3"
+# install cue
+RUN curl -L 'https://github.com/cue-lang/cue/releases/download/${CUE_VERSION}/cue_${CUE_VERSION}_linux_amd64.tar.gz' | tar zxf - -C /usr/local/bin \
+    && cue version
 
 # dagger
 RUN cd /usr/local \
